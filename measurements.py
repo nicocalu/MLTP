@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import StandardScaler
 import numpy as np
 
 
@@ -36,7 +37,8 @@ plt.show()
 
 # QUESTION 8
 
-degree_grid = np.arange(1, 26)
+degree_grid = np.arange(1, 18)
+curve_colors = plt.cm.rainbow(np.linspace(0, 1, len(degree_grid)))
 
 plt.figure(figsize=(12, 7))
 plt.scatter(X, y, color='black', label='Data points')
@@ -45,7 +47,7 @@ x = np.linspace(0, 15, num=200)
 empirical_risks = []
 
 
-for degree in degree_grid:
+for i, degree in enumerate(degree_grid):
 	poly_features = PolynomialFeatures(degree=degree, include_bias=False)
 	X_poly = poly_features.fit_transform(X)
 
@@ -60,7 +62,13 @@ for degree in degree_grid:
 	p = np.append(np.flip(poly_reg_model.coef_), poly_reg_model.intercept_)
 	y3 = np.polyval(p, x)
 
-	plt.plot(x, y3, linewidth=2, label=f'Degree {degree} (R2={r2:.3f}, MSE={mse:.3f})')
+	plt.plot(
+		x,
+		y3,
+		linewidth=2,
+		color=curve_colors[i],
+		label=f'Degree {degree} (R2={r2:.3f}, MSE={mse:.3f})'
+	)
 
 best_idx = int(np.argmin(empirical_risks))
 best_degree = int(degree_grid[best_idx])
@@ -85,7 +93,66 @@ plt.legend()
 plt.savefig('erm_curve.png', dpi=100, bbox_inches='tight')
 plt.show()
 
+# AVEC NORMALISATION
 
+degree_grid = np.arange(1, 18)
+curve_colors = plt.cm.rainbow(np.linspace(0, 1, len(degree_grid)))
 
+plt.figure(figsize=(12, 7))
+plt.scatter(X, y, color='black', label='Data points')
 
+x = np.linspace(0, 15, num=200)
+empirical_risks = []
+x_scaler = StandardScaler()
+y_scaler = StandardScaler()
+X_scaled = x_scaler.fit_transform(X)
+Y_scaled = y_scaler.fit_transform(y.reshape(-1, 1)).flatten()
+x_plot_scaled = x_scaler.transform(x.reshape(-1, 1))
+
+for i, degree in enumerate(degree_grid):
+	poly_features = PolynomialFeatures(degree=degree, include_bias=False)
+	X_poly = poly_features.fit_transform(X_scaled)
+
+	poly_reg_model = LinearRegression()
+	poly_reg_model.fit(X_poly, y)
+
+	y_pred_raw = poly_reg_model.predict(X_poly)
+	y_pred = y_scaler.transform(y_pred_raw.reshape(-1, 1)).flatten()
+	mse = mean_squared_error(Y_scaled, y_pred)
+	empirical_risks.append(mse)
+	r2 = r2_score(Y_scaled, y_pred)
+
+	x_poly_plot = poly_features.transform(x_plot_scaled)
+	y3 = poly_reg_model.predict(x_poly_plot)
+
+	plt.plot(
+		x,
+		y3,
+		linewidth=2,
+		color=curve_colors[i],
+		label=f'Degree {degree} (R2={r2:.3f}, MSE={mse:.3f})'
+	)
+
+best_idx = int(np.argmin(empirical_risks))
+best_degree = int(degree_grid[best_idx])
+best_mse = float(empirical_risks[best_idx])
+
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.title('Normalized Polynomial Regression with Degrees 1-25')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.savefig('normalized_polynomial_regression_plot.png', dpi=100, bbox_inches='tight')
+plt.show()
+
+plt.figure(figsize=(10, 6))
+plt.plot(degree_grid, empirical_risks, marker='o', linewidth=2, color='tab:green', label='Empirical risk (train MSE)')
+plt.scatter([best_degree], [best_mse], color='red', s=80, zorder=3, label=f'Min at degree {best_degree}')
+plt.xlabel('Polynomial degree')
+plt.ylabel('Empirical risk (MSE)')
+plt.title('Empirical Risk Minimization Curve')
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.savefig('normalized_erm_curve.png', dpi=100, bbox_inches='tight')
+plt.show()
 
